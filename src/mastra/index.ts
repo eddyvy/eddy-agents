@@ -1,21 +1,49 @@
+import { Mastra } from '@mastra/core/mastra'
+import { PinoLogger } from '@mastra/loggers'
+import {
+  Observability,
+  DefaultExporter,
+  CloudExporter,
+  SensitiveDataFilter,
+} from '@mastra/observability'
+import { PostgresStore } from '@mastra/pg'
+import { VercelDeployer } from '@mastra/deployer-vercel'
+import { MastraAuthConfig } from '@mastra/core/server'
 
-import { Mastra } from '@mastra/core/mastra';
-import { PinoLogger } from '@mastra/loggers';
-import { LibSQLStore } from '@mastra/libsql';
-import { Observability, DefaultExporter, CloudExporter, SensitiveDataFilter } from '@mastra/observability';
-import { weatherWorkflow } from './workflows/weather-workflow';
-import { weatherAgent } from './agents/weather-agent';
-import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
+// Define your user type
+type User = {
+  id: string
+  name: string
+  role: 'admin' | 'user'
+}
+
+const authConfig: MastraAuthConfig<User> = {
+  async authenticateToken(token, request) {
+    if (token === process.env.SIMPLE_AUTH_TOKEN) {
+      return {
+        id: 'user-admin',
+        name: 'Admin User',
+        role: 'admin',
+      }
+    }
+    throw new Error('Invalid token')
+  },
+  async authorize(path, method, user, context) {
+    return true
+  },
+}
+
+const storage = new PostgresStore({
+  id: 'pg-storage',
+  connectionString: process.env.DATABASE_URL,
+})
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow },
-  agents: { weatherAgent },
-  scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
-  storage: new LibSQLStore({
-    id: "mastra-storage",
-    // stores observability, scores, ... into persistent file storage
-    url: "file:./mastra.db",
-  }),
+  deployer: new VercelDeployer(),
+  workflows: {},
+  agents: {},
+  scorers: {},
+  storage,
   logger: new PinoLogger({
     name: 'Mastra',
     level: 'info',
@@ -34,4 +62,7 @@ export const mastra = new Mastra({
       },
     },
   }),
-});
+  server: {
+    auth: authConfig,
+  },
+})
