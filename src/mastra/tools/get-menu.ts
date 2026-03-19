@@ -1,5 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
+import { type MenuItem, menuOutputSchema } from '../../entities/menu.js'
 
 const menuItems = [
   {
@@ -112,24 +113,7 @@ export const getMenuTool = createTool({
   description:
     'Obtiene la carta completa del room service y las recomendaciones del chef para hoy. Úsala cuando el huésped pida el menú o quiera saber qué hay disponible.',
   inputSchema: z.object({}),
-  outputSchema: z.object({
-    items: z.array(
-      z.object({
-        id: z.string(),
-        category: z.string(),
-        name: z.string(),
-        description: z.string(),
-        price: z.number(),
-      }),
-    ),
-    recommendations: z.array(
-      z.object({
-        itemId: z.string(),
-        itemName: z.string(),
-        reason: z.string(),
-      }),
-    ),
-  }),
+  outputSchema: menuOutputSchema,
   execute: async () => {
     const recommendations = todaysRecommendations.map((rec) => {
       const item = menuItems.find((i) => i.id === rec.itemId)!
@@ -140,6 +124,6 @@ export const getMenuTool = createTool({
       }
     })
 
-    return { items: menuItems, recommendations }
+    return { items: menuItems as MenuItem[], recommendations }
   },
 })

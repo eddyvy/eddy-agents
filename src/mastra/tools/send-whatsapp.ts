@@ -1,12 +1,10 @@
 import twilio from 'twilio'
 import { createTool } from '@mastra/core/tools'
-import { z } from 'zod'
-
-export interface SendWhatsAppParams {
-  to: string
-  contentSid: string
-  contentVariables: Record<string, string>
-}
+import {
+  whatsAppInputSchema,
+  whatsAppOutputSchema,
+  type SendWhatsAppParams,
+} from '../../entities/whatsapp.js'
 
 /**
  * Standalone helper — can be called directly from workflow steps without
@@ -36,23 +34,7 @@ export const sendWhatsAppTool = createTool({
   id: 'send-whatsapp',
   description:
     'Sends a WhatsApp template message via Twilio Content API. Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM environment variables.',
-  inputSchema: z.object({
-    to: z
-      .string()
-      .describe(
-        'Destination phone number in whatsapp:<E.164> format, e.g. whatsapp:+34600000000',
-      ),
-    contentSid: z
-      .string()
-      .describe('Twilio Content SID (HXxxxxxxxx) for the WhatsApp template'),
-    contentVariables: z
-      .record(z.string(), z.string())
-      .describe(
-        'Template variables indexed by position, e.g. { "1": "John", "2": "Hotel Ejemplo" }',
-      ),
-  }),
-  outputSchema: z.object({
-    messageSid: z.string().describe('SID of the sent Twilio message'),
-  }),
+  inputSchema: whatsAppInputSchema,
+  outputSchema: whatsAppOutputSchema,
   execute: async (inputData) => sendWhatsApp(inputData),
 })

@@ -1,6 +1,9 @@
 import twilio from 'twilio'
 import { createTool } from '@mastra/core/tools'
-import { z } from 'zod'
+import {
+  smsOrderInputSchema,
+  smsOrderOutputSchema,
+} from '../../entities/sms.js'
 
 /** EXAMPLE_PHONE_NUMBER may contain "whatsapp:+XXXX" — strip the prefix for SMS */
 function normalizePhoneNumber(raw: string): string {
@@ -11,20 +14,8 @@ export const sendSmsTool = createTool({
   id: 'send-sms-order',
   description:
     'Envía la comanda del huésped por SMS a través de Twilio. Úsala cuando el huésped haya confirmado su pedido. Incluye el número de habitación y los platos pedidos.',
-  inputSchema: z.object({
-    roomNumber: z.string().describe('Número de habitación del huésped'),
-    order: z
-      .string()
-      .describe(
-        'Descripción completa del pedido: platos, cantidades y cualquier indicación especial',
-      ),
-  }),
-  outputSchema: z.object({
-    success: z.boolean(),
-    messageSid: z.string().optional(),
-    to: z.string().optional(),
-    error: z.string().optional(),
-  }),
+  inputSchema: smsOrderInputSchema,
+  outputSchema: smsOrderOutputSchema,
   execute: async ({ roomNumber, order }) => {
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID!,

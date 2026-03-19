@@ -1,62 +1,13 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows'
 import { z } from 'zod'
 import { sendWhatsApp } from '../tools/send-whatsapp.js'
-
-// ─────────────────────────────────────────────
-// Schemas
-// ─────────────────────────────────────────────
-
-const guestSchema = z.object({
-  first_name: z.string(),
-  lastname: z.string(),
-})
-
-const roomSchema = z.object({
-  room_id: z.string(),
-  room_name: z.string(),
-  adults: z.number(),
-  children: z.number(),
-  guests: z.array(guestSchema),
-})
-
-const bookerSchema = z.object({
-  first_name: z.string(),
-  lastname: z.string(),
-  email: z.string(),
-  phone: z.string(),
-  language: z.string(),
-})
-
-export const bookingSchema = z.object({
-  booking_id: z.string(),
-  hotel_name: z.string(),
-  status: z.string(), // "new" | "modified" | "canceled"
-  currency_code: z.string(),
-  source: z.string(),
-  total_amount_after_tax: z.number(),
-  checkin: z.string(), // YYYY-MM-DD
-  checkout: z.string(), // YYYY-MM-DD
-  checkin_time: z.string(), // HH:MM
-  checkout_time: z.string(), // HH:MM
-  adults: z.number(),
-  children: z.number(),
-  booker: bookerSchema,
-  rooms: z.array(roomSchema),
-})
-
-export type Booking = z.infer<typeof bookingSchema>
-
-// Las 4 plantillas disponibles — aparecen como desplegable en Mastra Studio
-const templateEnum = z.enum(['welcome', 'events', 'room-service', 'checkout'])
-type TemplateId = z.infer<typeof templateEnum>
-
-const notificationResultSchema = z.object({
-  booking_id: z.string(),
-  sent: z.boolean(),
-  template: z.string().optional(),
-  messageSid: z.string().optional(),
-  reason: z.string().optional(),
-})
+import {
+  bookingSchema,
+  type Booking,
+  templateEnum,
+  type TemplateId,
+  notificationResultSchema,
+} from '../../entities/booking.js'
 
 // ─────────────────────────────────────────────
 // Date helpers
