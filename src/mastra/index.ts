@@ -11,6 +11,7 @@ import { VercelDeployer } from '@mastra/deployer-vercel'
 import { MastraAuthConfig } from '@mastra/core/server'
 import { sendNotificationsWorkflow } from './workflows/send-notifications.js'
 import { roomServiceAgent } from './agents/room-service.js'
+import { hotelAgent } from './agents/hotel-agent.js'
 
 // Define your user type
 type User = {
@@ -43,7 +44,7 @@ const storage = new PostgresStore({
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
   workflows: { sendNotificationsWorkflow },
-  agents: { roomServiceAgent },
+  agents: { roomServiceAgent, hotelAgent },
   scorers: {},
   storage,
   logger: new PinoLogger({
