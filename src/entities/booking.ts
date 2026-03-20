@@ -1,28 +1,22 @@
 import { z } from 'zod'
+import { guestSchema, type Guest } from './guest.js'
 
-export const guestSchema = z.object({
+export { guestSchema, type Guest }
+
+export const roomOccupantSchema = z.object({
   first_name: z.string(),
   lastname: z.string(),
 })
-export type Guest = z.infer<typeof guestSchema>
+export type RoomOccupant = z.infer<typeof roomOccupantSchema>
 
 export const roomSchema = z.object({
   room_id: z.string(),
   room_name: z.string(),
   adults: z.number(),
   children: z.number(),
-  guests: z.array(guestSchema),
+  guests: z.array(roomOccupantSchema),
 })
 export type Room = z.infer<typeof roomSchema>
-
-export const bookerSchema = z.object({
-  first_name: z.string(),
-  lastname: z.string(),
-  email: z.string(),
-  phone: z.string(),
-  language: z.string(),
-})
-export type Booker = z.infer<typeof bookerSchema>
 
 export const bookingSchema = z.object({
   booking_id: z.string(),
@@ -37,7 +31,7 @@ export const bookingSchema = z.object({
   checkout_time: z.string(), // HH:MM
   adults: z.number(),
   children: z.number(),
-  booker: bookerSchema,
+  guest: guestSchema,
   rooms: z.array(roomSchema),
 })
 export type Booking = z.infer<typeof bookingSchema>

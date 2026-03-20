@@ -9,7 +9,7 @@ import {
 import { PostgresStore } from '@mastra/pg'
 import { VercelDeployer } from '@mastra/deployer-vercel'
 import { MastraAuthConfig } from '@mastra/core/server'
-import { bookingsNotificationsWorkflow } from './workflows/bookings-notifications.js'
+import { sendNotificationsWorkflow } from './workflows/send-notifications.js'
 import { roomServiceAgent } from './agents/room-service.js'
 
 // Define your user type
@@ -42,7 +42,7 @@ const storage = new PostgresStore({
 
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
-  workflows: { bookingsNotificationsWorkflow },
+  workflows: { sendNotificationsWorkflow },
   agents: { roomServiceAgent },
   scorers: {},
   storage,

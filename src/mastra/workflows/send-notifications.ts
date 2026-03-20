@@ -5,7 +5,6 @@ import {
   bookingSchema,
   type Booking,
   templateEnum,
-  type TemplateId,
   notificationResultSchema,
 } from '../../entities/booking.js'
 
@@ -92,12 +91,12 @@ const fetchBookingsStep = createStep({
         checkout_time: '12:00',
         adults: 2,
         children: 0,
-        booker: {
+        guest: {
           first_name: 'John',
           lastname: 'Doe',
           email: 'contact@johndoe.com',
           phone: process.env.EXAMPLE_PHONE_NUMBER!, // Número de prueba para WhatsApp (en formato E.164, e.g. +34600000000)
-          language: 'ES',
+          language: 'es',
         },
         rooms: [
           {
@@ -169,7 +168,7 @@ const evaluateAndNotifyStep = createStep({
     const {
       booking_id,
       hotel_name,
-      booker,
+      guest,
       checkin,
       checkout,
       checkin_time,
@@ -187,9 +186,8 @@ const evaluateAndNotifyStep = createStep({
       }
     }
 
-    const fullName = `${booker.first_name} ${booker.lastname}`
-    // Twilio expects the destination as "whatsapp:<E.164>"
-    const to = `whatsapp:${booker.phone}`
+    const fullName = `${guest.first_name} ${guest.lastname}`
+    const to = guest.phone
 
     // ── DEMO: envía la plantilla seleccionada en el input del workflow ──────
     // ── LÓGICA REAL POR FECHA (descomentar cuando conectes el PMS) ──────────
@@ -273,8 +271,8 @@ const evaluateAndNotifyStep = createStep({
 // Workflow assembly
 // ─────────────────────────────────────────────
 
-export const bookingsNotificationsWorkflow = createWorkflow({
-  id: 'bookings-notifications',
+export const sendNotificationsWorkflow = createWorkflow({
+  id: 'send-notifications',
   description:
     'Fetches hotel reservations from an API and sends the matching WhatsApp template to each guest via Twilio.',
   inputSchema: z.object({

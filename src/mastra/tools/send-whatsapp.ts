@@ -18,7 +18,7 @@ export async function sendWhatsApp(params: SendWhatsAppParams) {
 
   const message = await client.messages.create({
     from: process.env.TWILIO_WHATSAPP_FROM!,
-    to: params.to,
+    to: `whatsapp:${params.to}`,
     contentSid: params.contentSid,
     contentVariables: JSON.stringify(params.contentVariables),
   })
@@ -32,8 +32,7 @@ export async function sendWhatsApp(params: SendWhatsAppParams) {
  */
 export const sendWhatsAppTool = createTool({
   id: 'send-whatsapp',
-  description:
-    'Sends a WhatsApp template message via Twilio Content API. Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM environment variables.',
+  description: 'Sends a WhatsApp template message via Twilio Content API.',
   inputSchema: whatsAppInputSchema,
   outputSchema: whatsAppOutputSchema,
   execute: async (inputData) => sendWhatsApp(inputData),
