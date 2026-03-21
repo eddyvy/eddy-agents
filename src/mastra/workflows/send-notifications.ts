@@ -1,5 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows'
 import { z } from 'zod'
+import twilio from 'twilio'
 import { sendWhatsApp } from '../tools/send-whatsapp.js'
 import {
   bookingSchema,
@@ -7,6 +8,110 @@ import {
   templateEnum,
   notificationResultSchema,
 } from '../../entities/booking.js'
+import { hotelAgent } from '../agents/hotel-agent.js'
+
+// ─────────────────────────────────────────────
+// Memory helper — persists a sent notification
+// into the hotel agent's memory so the agent
+// has context when the guest starts a chat.
+// Uses the guest phone number as both resourceId
+// and threadId (one thread per guest).
+// ─────────────────────────────────────────────
+
+async function saveNotificationToMemory(
+  to: string,
+  fullName: string,
+  description: string,
+): Promise<string | null> {
+  try {
+    const memory = await hotelAgent.getMemory()
+    if (!memory) return null
+
+    const threadId = to
+    const resourceId = to
+
+    const existingThread = await memory.getThreadById({ threadId })
+    if (!existingThread) {
+      await memory.saveThread({
+        thread: {
+          id: threadId,
+          resourceId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          title: `Huésped: ${fullName}`,
+        },
+      })
+    }
+
+    const messageId = `notif-${to}-${Date.now()}`
+    await memory.saveMessages({
+      messages: [
+        {
+          id: messageId,
+          role: 'assistant',
+          content: {
+            format: 2 as const,
+            parts: [{ type: 'text' as const, text: description }],
+          },
+          createdAt: new Date(),
+          threadId,
+          resourceId,
+        },
+      ],
+    })
+    return messageId
+  } catch (err) {
+    console.warn(
+      '[send-notifications] Failed to save notification to memory:',
+      err,
+    )
+    return null
+  }
+}
+
+async function rollbackNotificationFromMemory(
+  messageId: string,
+): Promise<void> {
+  try {
+    const memory = await hotelAgent.getMemory()
+    if (!memory) return
+    await memory.deleteMessages([messageId])
+  } catch (err) {
+    console.warn('[send-notifications] Failed to rollback memory entry:', err)
+  }
+}
+
+// ─────────────────────────────────────────────
+// Template resolver — fetches a Twilio Content
+// template and replaces {{1}}, {{2}}, … with
+// the actual variable values.
+// ─────────────────────────────────────────────
+
+async function resolveTwilioTemplate(
+  contentSid: string,
+  vars: Record<string, string>,
+): Promise<string> {
+  try {
+    const client = twilio(
+      process.env.TWILIO_ACCOUNT_SID!,
+      process.env.TWILIO_AUTH_TOKEN!,
+    )
+    const content = await client.content.v1.contents(contentSid).fetch()
+    for (const typeContent of Object.values(content.types)) {
+      const body = (typeContent as Record<string, unknown>)?.body
+      if (typeof body === 'string') {
+        return body.replace(
+          /\{\{(\d+)\}\}/g,
+          (_, key: string) => vars[key] ?? `{{${key}}}`,
+        )
+      }
+    }
+    return `[Plantilla ${contentSid}]`
+  } catch (err) {
+    console.warn('[send-notifications] Failed to fetch Twilio template:', err)
+    return `[Plantilla ${contentSid}]`
+  }
+}
 
 // ─────────────────────────────────────────────
 // Date helpers
@@ -152,120 +257,231 @@ const fetchBookingsStep = createStep({
 })
 
 // ─────────────────────────────────────────────
-// Step 2 — Evaluate a single booking and send
-//           the appropriate WhatsApp template
+// Step 2a — Resolve Twilio template + save to memory
 // ─────────────────────────────────────────────
 
-const evaluateAndNotifyStep = createStep({
-  id: 'evaluate-and-notify',
+const resolveAndSaveStep = createStep({
+  id: 'resolve-and-save',
   description:
-    'Evaluates a single booking against date/time conditions and sends the matching WhatsApp template',
-  inputSchema: bookingSchema.extend({
+    'Resolves the Twilio template text, saves it to hotel-agent memory, and prepares the send payload',
+  inputSchema: bookingSchema.extend({ selectedTemplate: templateEnum }),
+  outputSchema: z.object({
+    booking_id: z.string(),
+    skip: z.boolean(),
+    skipReason: z.string().optional(),
+    savedMessageId: z.string().nullable(),
+    contentSid: z.string(),
+    vars: z.record(z.string(), z.string()),
+    to: z.string(),
+    fullName: z.string(),
     selectedTemplate: templateEnum,
   }),
-  outputSchema: notificationResultSchema,
   execute: async ({ inputData: booking }) => {
     const {
       booking_id,
       hotel_name,
       guest,
-      checkin,
-      checkout,
-      checkin_time,
       checkout_time,
       status,
       selectedTemplate,
     } = booking
-
-    // Skip canceled bookings
-    if (status === 'canceled') {
-      return {
-        booking_id,
-        sent: false,
-        reason: 'Booking is canceled — no notification sent',
-      }
-    }
-
     const fullName = `${guest.first_name} ${guest.lastname}`
     const to = guest.phone
 
-    // ── DEMO: envía la plantilla seleccionada en el input del workflow ──────
-    // ── LÓGICA REAL POR FECHA (descomentar cuando conectes el PMS) ──────────
-    // const checkinDays = daysAgo(checkin)
-    // const checkoutDays = daysAgo(checkout)
-    // const hoursAgoCheckin = checkinHoursAgo(checkin, checkin_time)
-    //
-    // // Priority 1: Checkout day
-    // if (checkoutDays === 0) { ... usar selectedTemplate = 'checkout' ... }
-    // // Priority 2: 2 days after check-in → Room service
-    // if (checkinDays === 2) { ... usar selectedTemplate = 'room-service' ... }
-    // // Priority 3: 1 day after check-in → Events
-    // if (checkinDays === 1) { ... usar selectedTemplate = 'events' ... }
-    // // Priority 4: ~2 hours after check-in → Welcome (window: 1–3 h)
-    // if (hoursAgoCheckin >= 1 && hoursAgoCheckin <= 3) { ... usar selectedTemplate = 'welcome' ... }
-
-    if (selectedTemplate === 'checkout') {
-      const contentSid = process.env.TWILIO_TEMPLATE_CHECKOUT_SID!
-      const { messageSid } = await sendWhatsApp({
+    if (status === 'canceled') {
+      return {
+        booking_id,
+        skip: true,
+        skipReason: 'Booking is canceled — no notification sent',
+        savedMessageId: null,
+        contentSid: '',
+        vars: {},
         to,
-        contentSid,
-        contentVariables: {
-          '1': fullName,
-          '2': hotel_name,
-          '3': checkout_time,
-        },
-      })
-      return { booking_id, sent: true, template: 'checkout', messageSid }
+        fullName,
+        selectedTemplate,
+      }
     }
 
-    if (selectedTemplate === 'room-service') {
-      const contentSid = process.env.TWILIO_TEMPLATE_ROOMSERVICE_SID!
-      const { messageSid } = await sendWhatsApp({
-        to,
-        contentSid,
-        contentVariables: {
+    const templateConfigs: Record<
+      string,
+      { contentSid: string; vars: Record<string, string> }
+    > = {
+      checkout: {
+        contentSid: process.env.TWILIO_TEMPLATE_CHECKOUT_SID!,
+        vars: { '1': fullName, '2': hotel_name, '3': checkout_time },
+      },
+      'room-service': {
+        contentSid: process.env.TWILIO_TEMPLATE_ROOMSERVICE_SID!,
+        vars: {
           '1': fullName,
           '2': hotel_name,
           '3': 'Abierto de 12:00 a 23:00. Y la selección del chef para hoy es de Paletilla de Cordero',
         },
-      })
-      return { booking_id, sent: true, template: 'room-service', messageSid }
-    }
-
-    if (selectedTemplate === 'events') {
-      const contentSid = process.env.TWILIO_TEMPLATE_EVENTS_SID!
-      const { messageSid } = await sendWhatsApp({
-        to,
-        contentSid,
-        contentVariables: {
+      },
+      events: {
+        contentSid: process.env.TWILIO_TEMPLATE_EVENTS_SID!,
+        vars: {
           '1': fullName,
           '2': hotel_name,
           '3': 'Cena de San Valentín a las 20:30',
         },
-      })
-      return { booking_id, sent: true, template: 'events', messageSid }
+      },
+      welcome: {
+        contentSid: process.env.TWILIO_TEMPLATE_WELCOME_SID!,
+        vars: { '1': fullName, '2': hotel_name },
+      },
     }
 
-    if (selectedTemplate === 'welcome') {
-      const contentSid = process.env.TWILIO_TEMPLATE_WELCOME_SID!
-      const { messageSid } = await sendWhatsApp({
+    const config = templateConfigs[selectedTemplate]
+    if (!config) {
+      return {
+        booking_id,
+        skip: true,
+        skipReason: 'Plantilla no reconocida',
+        savedMessageId: null,
+        contentSid: '',
+        vars: {},
         to,
-        contentSid,
-        contentVariables: {
-          '1': fullName,
-          '2': hotel_name,
-        },
-      })
-      return { booking_id, sent: true, template: 'welcome', messageSid }
+        fullName,
+        selectedTemplate,
+      }
     }
+
+    const { contentSid, vars } = config
+    const templateText = await resolveTwilioTemplate(contentSid, vars)
+    const savedMessageId = await saveNotificationToMemory(
+      to,
+      fullName,
+      templateText,
+    )
 
     return {
       booking_id,
-      sent: false,
-      reason: 'Plantilla no reconocida',
+      skip: false,
+      savedMessageId,
+      contentSid,
+      vars,
+      to,
+      fullName,
+      selectedTemplate,
     }
   },
 })
+
+// ─────────────────────────────────────────────
+// Step 2b — Send WhatsApp
+// ─────────────────────────────────────────────
+
+const sendWhatsAppStep = createStep({
+  id: 'send-whatsapp',
+  description:
+    'Sends the WhatsApp template message via Twilio. Catches send errors instead of throwing.',
+  inputSchema: z.object({
+    booking_id: z.string(),
+    skip: z.boolean(),
+    skipReason: z.string().optional(),
+    savedMessageId: z.string().nullable(),
+    contentSid: z.string(),
+    vars: z.record(z.string(), z.string()),
+    to: z.string(),
+    fullName: z.string(),
+    selectedTemplate: templateEnum,
+  }),
+  outputSchema: z.object({
+    booking_id: z.string(),
+    skip: z.boolean(),
+    skipReason: z.string().optional(),
+    selectedTemplate: templateEnum,
+    messageSid: z.string().optional(),
+    sendError: z.string().optional(),
+  }),
+  execute: async ({ inputData }) => {
+    const {
+      booking_id,
+      skip,
+      skipReason,
+      contentSid,
+      vars,
+      to,
+      selectedTemplate,
+    } = inputData
+
+    if (skip) {
+      return { booking_id, skip: true, skipReason, selectedTemplate }
+    }
+
+    try {
+      const { messageSid } = await sendWhatsApp({
+        to,
+        contentSid,
+        contentVariables: vars,
+      })
+      return { booking_id, skip: false, selectedTemplate, messageSid }
+    } catch (err) {
+      const sendError = err instanceof Error ? err.message : String(err)
+      return { booking_id, skip: false, selectedTemplate, sendError }
+    }
+  },
+})
+
+// ─────────────────────────────────────────────
+// Step 2c — Rollback on failure / finalize
+// ─────────────────────────────────────────────
+
+const rollbackOrFinalizeStep = createStep({
+  id: 'rollback-or-finalize',
+  description:
+    'Rolls back the memory entry if the WhatsApp send failed; returns the final notification result.',
+  inputSchema: z.object({
+    booking_id: z.string(),
+    skip: z.boolean(),
+    skipReason: z.string().optional(),
+    selectedTemplate: templateEnum,
+    messageSid: z.string().optional(),
+    sendError: z.string().optional(),
+  }),
+  outputSchema: notificationResultSchema,
+  execute: async ({ inputData, getStepResult }) => {
+    const {
+      booking_id,
+      skip,
+      skipReason,
+      selectedTemplate,
+      messageSid,
+      sendError,
+    } = inputData
+
+    if (skip) {
+      return { booking_id, sent: false, reason: skipReason ?? 'Skipped' }
+    }
+
+    if (sendError) {
+      const saveResult = getStepResult(resolveAndSaveStep)
+      if (saveResult?.savedMessageId) {
+        await rollbackNotificationFromMemory(saveResult.savedMessageId)
+      }
+      return { booking_id, sent: false, reason: sendError }
+    }
+
+    return { booking_id, sent: true, template: selectedTemplate, messageSid }
+  },
+})
+
+// ─────────────────────────────────────────────
+// Sub-workflow — one per booking item
+// ─────────────────────────────────────────────
+
+const notifyGuestWorkflow = createWorkflow({
+  id: 'notify-guest',
+  description:
+    'Resolves, saves, sends, and finalizes (or rolls back) a single guest notification.',
+  inputSchema: bookingSchema.extend({ selectedTemplate: templateEnum }),
+  outputSchema: notificationResultSchema,
+})
+  .then(resolveAndSaveStep)
+  .then(sendWhatsAppStep)
+  .then(rollbackOrFinalizeStep)
+  .commit()
 
 // ─────────────────────────────────────────────
 // Workflow assembly
@@ -289,5 +505,5 @@ export const sendNotificationsWorkflow = createWorkflow({
       selectedTemplate: inputData.selectedTemplate,
     })),
   )
-  .foreach(evaluateAndNotifyStep)
+  .foreach(notifyGuestWorkflow)
   .commit()
