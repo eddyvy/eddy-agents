@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
-import { hotelAgent } from '../agents/hotel-agent.js'
+import { hotelMemory } from '../memory.js'
 
 export const flushConversation = createTool({
   id: 'flush-conversation',
@@ -16,14 +16,8 @@ export const flushConversation = createTool({
     threadId: z.string(),
   }),
   execute: async ({ phone }) => {
-    const memory = await hotelAgent.getMemory()
-
-    if (!memory) {
-      throw new Error('Memory is not configured on the hotel agent')
-    }
-
     // threadId is always the guest phone number in this project
-    await memory.deleteThread(phone)
+    await hotelMemory.deleteThread(phone)
 
     return { deleted: true, threadId: phone }
   },

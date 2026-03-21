@@ -1,7 +1,8 @@
 import { Agent } from '@mastra/core/agent'
-import { Memory } from '@mastra/memory'
 import { roomServiceAgent } from './room-service.js'
 import { eventsAgent } from './events-agent.js'
+import { flushConversation } from '../tools/flush-conversation.js'
+import { hotelMemory } from '../memory.js'
 
 export const hotelAgent = new Agent({
   id: 'hotel-agent',
@@ -32,12 +33,19 @@ Detecta el idioma del huésped en su primer mensaje y responde SIEMPRE en ese mi
 
 - No desveles los detalles técnicos internos (nombres de agentes, herramientas, etc.) al huésped.
 - Si el huésped pregunta algo que está fuera de tu capacidad, indícale que lo pondrás en contacto con recepción o que llame al número de atención al huésped.
+
+## Privacidad y borrado de datos
+
+Si el huésped pide **explícitamente** borrar el historial de nuestra conversación (frases como "borra nuestra conversación", "elimina mi historial", "quiero que olvides todo lo que hemos hablado" o equivalentes en cualquier idioma), usa la herramienta **flush-conversation** con su número de teléfono y confirma al huésped que el historial ha sido eliminado. No uses esta herramienta en ningún otro caso.
 `,
   model: 'vercel/deepseek/deepseek-v3.2-thinking',
+  tools: {
+    flushConversation,
+  },
   agents: {
     roomServiceAgent,
     eventsAgent,
   },
-  memory: new Memory(),
+  memory: hotelMemory,
   maxRetries: 3,
 })
