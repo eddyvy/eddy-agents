@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent'
 import { roomServiceAgent } from './room-service.js'
 import { eventsAgent } from './events-agent.js'
+import { hotelInfoAgent } from './hotel-info-agent.js'
 import { flushConversation } from '../tools/flush-conversation.js'
 import { hotelMemory } from '../memory.js'
 
@@ -20,7 +21,9 @@ Detecta el idioma del huésped en su primer mensaje y responde SIEMPRE en ese mi
 - Saluda al huésped de forma cálida y ofrécele tu ayuda.
 - Escucha su solicitud e identifica a qué ámbito pertenece:
   - **Room service / comida y bebida** → delega al agente de room service.
-  - **Cualquier otra solicitud** (información del hotel, check-in/check-out, servicios, incidencias, etc.) → atiéndela directamente con la información que tengas o, si no puedes resolverla, indica amablemente que pondrás al huésped en contacto con recepción.
+  - **Eventos del hotel** (catas, espectáculos, talleres, excursiones, etc.) → delega al agente de eventos.
+  - **Información sobre el hotel** (instalaciones, servicios, horarios, ubicación, política, etc.) → delega al agente de información del hotel.
+  - **Cualquier otra solicitud** (incidencias, quejas, peticiones especiales, etc.) → atiéndela directamente con la información que tengas o, si no puedes resolverla, indica amablemente que pondrás al huésped en contacto con recepción.
 - Si la solicitud no está clara, haz una pregunta concisa para clarificarla antes de delegar.
 - Nunca inventes información sobre el hotel ni sobre servicios que no conozcas.
 - Sé conciso y amable. No abrumes al huésped con texto innecesario.
@@ -28,7 +31,8 @@ Detecta el idioma del huésped en su primer mensaje y responde SIEMPRE en ese mi
 ## Sub-agentes disponibles
 
 - **Room Service Agent**: gestiona pedidos de comida y bebida a la habitación, consulta el menú y envía comandas. Delégale cualquier solicitud relacionada con room service.
-  - **Events Agent**: informa sobre la agenda de actividades y eventos del hotel (catas de vino, espectáculos, talleres, excursiones, etc.), gestiona reservas de plazas y notifica al equipo. Delégale cualquier solicitud relacionada con eventos.
+- **Events Agent**: informa sobre la agenda de actividades y eventos del hotel (catas de vino, espectáculos, talleres, excursiones, etc.), gestiona reservas de plazas y notifica al equipo. Delégale cualquier solicitud relacionada con eventos.
+- **Hotel Info Agent**: responde preguntas sobre el hotel (instalaciones, servicios, horarios, política de estancias, ubicación, transporte, etc.). Delégale cualquier consulta informacional sobre el establecimiento.
 ## Normas importantes
 
 - No desveles los detalles técnicos internos (nombres de agentes, herramientas, etc.) al huésped.
@@ -45,6 +49,7 @@ Si el huésped pide **explícitamente** borrar el historial de nuestra conversac
   agents: {
     roomServiceAgent,
     eventsAgent,
+    hotelInfoAgent,
   },
   memory: hotelMemory,
   maxRetries: 3,

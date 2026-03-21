@@ -13,6 +13,7 @@ import { sendNotificationsWorkflow } from './workflows/send-notifications.js'
 import { replyWhatsAppWorkflow } from './workflows/reply-whatsapp.js'
 import { roomServiceAgent } from './agents/room-service.js'
 import { eventsAgent } from './agents/events-agent.js'
+import { hotelInfoAgent } from './agents/hotel-info-agent.js'
 import { hotelAgent } from './agents/hotel-agent.js'
 import { SimpleAuth } from '@mastra/core/server'
 import { twilioWebhookRoute } from '../webhooks/twilio.js'
@@ -48,7 +49,7 @@ const storage = new PostgresStore({
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
   workflows: { sendNotificationsWorkflow, replyWhatsAppWorkflow },
-  agents: { roomServiceAgent, eventsAgent, hotelAgent },
+  agents: { roomServiceAgent, eventsAgent, hotelInfoAgent, hotelAgent },
   scorers: {},
   storage,
   logger: new PinoLogger({
