@@ -51,7 +51,7 @@ async function saveErrorToMemory(phone: string, error: string): Promise<void> {
 const guestInputSchema = z
   .object({
     phone: z.string().optional().describe('E.164 phone number of the guest'),
-    email: z.string().email().optional().describe('Email address of the guest'),
+    email: z.email().optional().describe('Email address of the guest'),
     body: z.string().describe('Message text sent by the guest'),
   })
   .refine((d) => d.phone || d.email, {
@@ -102,9 +102,7 @@ const runAgentStep = createStep({
 
     // Prepend guest name when known so the agent can address the guest
     // by name even if this is the first message in the session.
-    const prompt = guest
-      ? `[Huésped: ${guest.first_name} ${guest.lastname}]\n${body}`
-      : body
+    const prompt = guest ? `[Huésped: ${JSON.stringify(guest)}]\n${body}` : body
 
     const response = await hotelAgent.generate(prompt, {
       memory: {

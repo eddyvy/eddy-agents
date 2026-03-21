@@ -9,6 +9,7 @@ const guests = [
     email: 'carlos.martinez@email.com',
     phone: '+34600111222',
     language: 'es',
+    roomNumber: '101',
   },
   {
     first_name: 'Sophie',
@@ -16,6 +17,7 @@ const guests = [
     email: 'sophie.dupont@email.com',
     phone: '+33612345678',
     language: 'fr',
+    roomNumber: null,
   },
   {
     first_name: 'John',
@@ -23,6 +25,7 @@ const guests = [
     email: 'contact@johndoe.com',
     phone: process.env.EXAMPLE_PHONE_NUMBER!,
     language: 'es',
+    roomNumber: '203',
   },
 ]
 

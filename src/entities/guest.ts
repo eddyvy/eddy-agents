@@ -6,5 +6,6 @@ export const guestSchema = z.object({
   email: z.email(),
   phone: z.string(),
   language: z.string(),
+  roomNumber: z.string().nullable().optional(),
 })
 export type Guest = z.infer<typeof guestSchema>
