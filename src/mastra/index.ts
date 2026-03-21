@@ -10,9 +10,11 @@ import { PostgresStore } from '@mastra/pg'
 import { VercelDeployer } from '@mastra/deployer-vercel'
 import { MastraAuthConfig } from '@mastra/core/server'
 import { sendNotificationsWorkflow } from './workflows/send-notifications.js'
+import { replyWhatsAppWorkflow } from './workflows/reply-whatsapp.js'
 import { roomServiceAgent } from './agents/room-service.js'
 import { hotelAgent } from './agents/hotel-agent.js'
 import { SimpleAuth } from '@mastra/core/server'
+import { twilioWebhookRoute } from '../webhooks/twilio.js'
 
 // Define your user type
 type User = {
@@ -44,7 +46,7 @@ const storage = new PostgresStore({
 
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
-  workflows: { sendNotificationsWorkflow },
+  workflows: { sendNotificationsWorkflow, replyWhatsAppWorkflow },
   agents: { roomServiceAgent, hotelAgent },
   scorers: {},
   storage,
@@ -75,6 +77,8 @@ export const mastra = new Mastra({
           role: 'admin',
         },
       },
+      public: ['/webhooks/twilio'],
     }),
+    apiRoutes: [twilioWebhookRoute],
   },
 })

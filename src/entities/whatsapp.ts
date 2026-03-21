@@ -15,6 +15,14 @@ export const whatsAppInputSchema = z.object({
 })
 export type SendWhatsAppParams = z.infer<typeof whatsAppInputSchema>
 
+export const whatsAppTextInputSchema = z.object({
+  to: z
+    .string()
+    .describe('Destination phone number in E.164 format, e.g. +34600000000'),
+  body: z.string().describe('Text message body to send via WhatsApp'),
+})
+export type SendWhatsAppTextParams = z.infer<typeof whatsAppTextInputSchema>
+
 export const whatsAppOutputSchema = z.object({
   messageSid: z.string().describe('SID of the sent Twilio message'),
 })
