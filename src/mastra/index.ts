@@ -9,6 +9,7 @@ import {
 import { PostgresStore } from '@mastra/pg'
 import { VercelDeployer } from '@mastra/deployer-vercel'
 import { MastraAuthConfig } from '@mastra/core/server'
+import { storage } from './storage.js'
 import { sendNotificationsWorkflow } from './workflows/send-notifications.js'
 import { replyWhatsAppWorkflow } from './workflows/reply-whatsapp.js'
 import { roomServiceAgent } from './agents/room-service.js'
@@ -41,11 +42,6 @@ const authConfig: MastraAuthConfig<User> = {
     return true
   },
 }
-
-const storage = new PostgresStore({
-  id: 'pg-storage',
-  connectionString: process.env.DATABASE_URL,
-})
 
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
