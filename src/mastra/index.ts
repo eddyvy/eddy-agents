@@ -12,6 +12,7 @@ import { MastraAuthConfig } from '@mastra/core/server'
 import { sendNotificationsWorkflow } from './workflows/send-notifications.js'
 import { roomServiceAgent } from './agents/room-service.js'
 import { hotelAgent } from './agents/hotel-agent.js'
+import { SimpleAuth } from '@mastra/core/server'
 
 // Define your user type
 type User = {
@@ -66,6 +67,14 @@ export const mastra = new Mastra({
     },
   }),
   server: {
-    auth: authConfig,
+    auth: new SimpleAuth<User>({
+      tokens: {
+        [process.env.SIMPLE_AUTH_TOKEN || '']: {
+          id: 'user-admin',
+          name: 'Admin User',
+          role: 'admin',
+        },
+      },
+    }),
   },
 })
