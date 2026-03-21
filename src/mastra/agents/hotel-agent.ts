@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent'
 import { Memory } from '@mastra/memory'
 import { roomServiceAgent } from './room-service.js'
+import { eventsAgent } from './events-agent.js'
 
 export const hotelAgent = new Agent({
   id: 'hotel-agent',
@@ -26,7 +27,7 @@ Detecta el idioma del huésped en su primer mensaje y responde SIEMPRE en ese mi
 ## Sub-agentes disponibles
 
 - **Room Service Agent**: gestiona pedidos de comida y bebida a la habitación, consulta el menú y envía comandas. Delégale cualquier solicitud relacionada con room service.
-
+  - **Events Agent**: informa sobre la agenda de actividades y eventos del hotel (catas de vino, espectáculos, talleres, excursiones, etc.), gestiona reservas de plazas y notifica al equipo. Delégale cualquier solicitud relacionada con eventos.
 ## Normas importantes
 
 - No desveles los detalles técnicos internos (nombres de agentes, herramientas, etc.) al huésped.
@@ -35,6 +36,7 @@ Detecta el idioma del huésped en su primer mensaje y responde SIEMPRE en ese mi
   model: 'vercel/deepseek/deepseek-v3.2-thinking',
   agents: {
     roomServiceAgent,
+    eventsAgent,
   },
   memory: new Memory(),
   maxRetries: 3,

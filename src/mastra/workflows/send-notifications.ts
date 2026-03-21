@@ -323,7 +323,7 @@ const resolveAndSaveStep = createStep({
         vars: {
           '1': fullName,
           '2': hotel_name,
-          '3': 'Cena de San Valentín a las 20:30',
+          '3': 'Cata de vinos premium',
         },
       },
       welcome: {
