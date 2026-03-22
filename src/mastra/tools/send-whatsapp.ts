@@ -24,6 +24,7 @@ export async function sendWhatsApp(params: SendWhatsAppParams) {
     to: `whatsapp:${params.to}`,
     contentSid: params.contentSid,
     contentVariables: JSON.stringify(params.contentVariables),
+    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
   })
 
   return { messageSid: message.sid }
@@ -116,6 +117,7 @@ export async function sendWhatsAppText({
       from: process.env.TWILIO_WHATSAPP_FROM!,
       to: `whatsapp:${to}`,
       body: chunk,
+      messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
     })
     messageSids.push(message.sid)
   }
